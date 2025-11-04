@@ -3,99 +3,106 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>サイコロ判定デモ (GitHub Pages対応)</title>
+  <title>サイコロ判定デモ (スマホ対応)</title>
   <style>
     :root { --bg: #0b1020; --fg: #e8edf2; --muted:#93a1b1; --accent:#70e1ff; }
-    html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji"; }
-    header { padding: 14px 18px; border-bottom: 1px solid #1d2935; display: flex; align-items: center; gap: 12px; }
-    h1 { font-size: 18px; margin: 0; letter-spacing: .02em; font-weight: 600; }
-    main { display: grid; grid-template-columns: 1fr 360px; gap: 12px; height: calc(100% - 57px); }
-    .stage { position: relative; background: #0e1428; display: grid; place-items: center; }
-    video, canvas { max-width: 100%; height: auto; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+    html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+    header { padding: 12px; border-bottom: 1px solid #1d2935; display: flex; align-items: center; justify-content: space-between; }
+    h1 { font-size: 16px; margin: 0; }
+    main { display: flex; flex-direction: column; height: calc(100% - 50px); }
+
+    .stage { flex: 1; position: relative; display: grid; place-items: center; background: #0e1428; }
+    video, canvas { width: 100%; height: auto; max-height: 60vh; border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
     #overlay { position: absolute; inset: 0; pointer-events: none; }
-    .panel { padding: 16px; border-left: 1px solid #1d2935; overflow: auto; }
-    .row { display: flex; align-items: center; gap: 8px; margin: 10px 0; }
+
+    .panel { padding: 10px; border-top: 1px solid #1d2935; background: #0e1428; overflow-y: auto; }
+    .row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 8px 0; }
     .col { display: grid; gap: 6px; margin: 10px 0; }
-    .btn { appearance: none; cursor: pointer; border: 1px solid #2a3a4a; background: #131d2e; color: var(--fg); padding: 10px 12px; border-radius: 10px; font-weight: 600; }
+    .btn { appearance: none; cursor: pointer; border: 1px solid #2a3a4a; background: #131d2e; color: var(--fg); padding: 8px 10px; border-radius: 8px; font-size: 14px; }
     .btn:disabled { opacity: .5; cursor: not-allowed; }
-    .pill { padding: 6px 10px; border-radius: 100px; background: #101a2a; border: 1px solid #223042; color: var(--muted); font-size: 12px; }
-    label { font-size: 12px; color: var(--muted); }
+    .pill { padding: 4px 8px; border-radius: 100px; background: #101a2a; border: 1px solid #223042; color: var(--muted); font-size: 12px; }
+    input, select { font-size: 14px; }
     input[type="range"] { width: 100%; }
-    .badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; background: #111a29; border: 1px solid #223042; color: var(--accent); border-radius: 999px; font-weight: 700; }
-    .hint { color: var(--muted); font-size: 12px; }
-    .stat { font-size: 26px; font-weight: 800; letter-spacing: .03em; }
+    .badge { display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; background: #111a29; border: 1px solid #223042; color: var(--accent); border-radius: 999px; font-weight: 700; }
+    .stat { font-size: 22px; font-weight: 800; }
+    .hint { font-size: 12px; color: var(--muted); }
     a { color: var(--accent); text-decoration: none; }
+
+    @media (min-width: 800px) {
+      main { flex-direction: row; }
+      .stage { flex: 2; }
+      .panel { flex: 1; border-top: none; border-left: 1px solid #1d2935; }
+      video, canvas { max-width: 100%; max-height: 80vh; }
+    }
   </style>
 </head>
 <body>
   <header>
-    <h1>🎲 サイコロ 1–6 判定（カメラ）</h1>
+    <h1>🎲 サイコロ判定（スマホ対応）</h1>
     <span id="status" class="pill">初期化中…</span>
   </header>
+
   <main>
     <section class="stage">
       <video id="video" playsinline autoplay muted></video>
       <canvas id="overlay"></canvas>
     </section>
+
     <aside class="panel">
-      <div class="col">
-        <div class="row">
-          <button id="startBtn" class="btn">カメラ開始</button>
-          <button id="stopBtn" class="btn" disabled>停止</button>
-          <button id="flipBtn" class="btn">カメラ切替</button>
-        </div>
-        <div class="row">
-          <button id="sampleBtn" class="btn">背景色をサンプル</button>
-          <input type="color" id="bgColor" value="#2b4cff" title="背景色(推定)" />
-        </div>
-        <div class="col">
-          <label>背景との色差しきい値（Hue）<span class="hint">小→厳密 / 大→ゆるめ</span></label>
-          <input type="range" id="hueTol" min="5" max="60" value="18" />
-          <label>背景との色差しきい値（Sat/Val）</label>
-          <input type="range" id="svTol" min="10" max="150" value="60" />
-        </div>
-        <div class="col">
-          <label>ドット抽出の二値化（適応閾値のブロックサイズ）</label>
-          <input type="range" id="blockSize" min="7" max="99" step="2" value="31" />
-          <label>ドット抽出のC（明るさオフセット）</label>
-          <input type="range" id="threshC" min="-20" max="20" value="5" />
-        </div>
-        <div class="row">
-          <span class="badge">推定: <span id="pred" class="stat">–</span></span>
-          <span class="pill" id="fps">0 fps</span>
-        </div>
-
-        <hr style="border-color:#1d2935;border-width:0 0 1px;margin:12px 0;">
-        <div class="col">
-          <label>Google スプレッドシート連携（Apps Script Web アプリURL）</label>
-          <input id="endpointUrl" placeholder="https://script.google.com/.../exec" style="width:100%;padding:8px;border-radius:8px;border:1px solid #2a3a4a;background:#131d2e;color:var(--fg);" />
-          <label>送信トークン（任意・簡易認証）</label>
-          <input id="endpointToken" placeholder="任意の文字列" style="width:100%;padding:8px;border-radius:8px;border:1px solid #2a3a4a;background:#131d2e;color:var(--fg);" />
-          <div class="row">
-            <label style="min-width:130px;">記録間隔（秒）</label>
-            <input type="number" id="logInterval" min="1" value="5" class="btn" style="width:100px;text-align:right;" />
-            <button id="logToggleBtn" class="btn">ロギング開始</button>
-          </div>
-          <div class="row" style="flex-wrap:wrap;gap:6px;">
-            <span class="pill">1: <span id="c1">0</span></span>
-            <span class="pill">2: <span id="c2">0</span></span>
-            <span class="pill">3: <span id="c3">0</span></span>
-            <span class="pill">4: <span id="c4">0</span></span>
-            <span class="pill">5: <span id="c5">0</span></span>
-            <span class="pill">6: <span id="c6">0</span></span>
-          </div>
-          <p class="hint">※ 一定秒ごとに「現在の判定（安定化後）」を送信してシートに追記します。URLはGoogle Apps ScriptのWebアプリ（後述）を指定してください。</p>
-        </div>
-
-        <p class="hint">ヒント: 「背景色をサンプル」→ どこでもよいので背景をクリック/タップすると自動で拾います。背景色が固定の前提で最も安定します。</p>
-        <p class="hint">GitHub Pages で https 配信が必要です。カメラ許可を求められたら許可してください。</p>
+      <div class="row">
+        <button id="startBtn" class="btn">カメラ開始</button>
+        <button id="stopBtn" class="btn" disabled>停止</button>
+        <button id="flipBtn" class="btn">カメラ切替</button>
       </div>
+      <div class="row">
+        <button id="sampleBtn" class="btn">背景色サンプル</button>
+        <input type="color" id="bgColor" value="#2b4cff" />
+      </div>
+      <div class="col">
+        <label>背景との色差(Hue)</label>
+        <input type="range" id="hueTol" min="5" max="60" value="18" />
+        <label>背景との色差(Sat/Val)</label>
+        <input type="range" id="svTol" min="10" max="150" value="60" />
+      </div>
+      <div class="col">
+        <label>ドット抽出ブロックサイズ</label>
+        <input type="range" id="blockSize" min="7" max="99" step="2" value="31" />
+        <label>ドット抽出C値</label>
+        <input type="range" id="threshC" min="-20" max="20" value="5" />
+      </div>
+
+      <div class="row">
+        <span class="badge">推定: <span id="pred" class="stat">–</span></span>
+        <span class="pill" id="fps">0 fps</span>
+      </div>
+
+      <hr>
+
+      <div class="col">
+        <label>スプレッドシートURL</label>
+        <input id="endpointUrl" placeholder="https://script.google.com/.../exec" style="width:100%;padding:6px;border-radius:6px;border:1px solid #2a3a4a;background:#131d2e;color:var(--fg);" />
+        <label>トークン</label>
+        <input id="endpointToken" placeholder="任意の文字列" style="width:100%;padding:6px;border-radius:6px;border:1px solid #2a3a4a;background:#131d2e;color:var(--fg);" />
+        <div class="row">
+          <label>記録間隔(秒)</label>
+          <input type="number" id="logInterval" min="1" value="5" style="width:70px;text-align:right;" />
+          <button id="logToggleBtn" class="btn">ロギング開始</button>
+        </div>
+        <div class="row" style="flex-wrap:wrap;gap:4px;">
+          <span class="pill">1:<span id="c1">0</span></span>
+          <span class="pill">2:<span id="c2">0</span></span>
+          <span class="pill">3:<span id="c3">0</span></span>
+          <span class="pill">4:<span id="c4">0</span></span>
+          <span class="pill">5:<span id="c5">0</span></span>
+          <span class="pill">6:<span id="c6">0</span></span>
+        </div>
+      </div>
+
+      <p class="hint">※スマホでも縦向き・横向き両対応。背景色サンプルで精度アップ。</p>
     </aside>
   </main>
 
-  <!-- OpenCV.js (WASM) を CDN から読み込み。ネット接続が必要です。 -->
   <script async src="https://docs.opencv.org/4.x/opencv.js" onload="onOpenCvReady()"></script>
-
   <script>
     let video = document.getElementById('video');
     let overlay = document.getElementById('overlay');
